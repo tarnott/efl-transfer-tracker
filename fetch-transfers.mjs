@@ -31,7 +31,7 @@ const fm = new FotmobClass();
 
 async function rawGet(path) {
   await fm.ensureInitialized();
-  const res = await fm.axiosInstance.get(path);
+  const res = await fm.axiosInstance.get("data/" + path); // FotMob moved endpoints under /api/data/
   if (res.data?.error) throw new Error(`FotMob error for ${path}: ${JSON.stringify(res.data)}`);
   return res.data;
 }
