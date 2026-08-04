@@ -1,0 +1,13 @@
+{
+  "name": "efl-transfer-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-updating EFL transfer tracker (Premier League, Championship, League One, League Two) with daily FotMob scrape",
+  "scripts": {
+    "fetch": "node fetch-transfers.mjs"
+  },
+  "dependencies": {
+    "@max-xoo/fotmob": "^2.5.1"
+  }
+}

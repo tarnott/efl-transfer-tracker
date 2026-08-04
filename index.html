@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EFL Transfer Tracker</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --plane: #0d0d0d;
+    --card: #201f1e;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255,255,255,0.10);
+    --blue: #3987e5;
+    --in: #0ca30c;    /* good / money received context uses green */
+    --out: #e66767;   /* red */
+    --net-pos: #0ca30c;
+    --net-neg: #e66767;
+    --pl: #3987e5;
+    --ch: #d95926;
+    --l1: #199e70;
+    --l2: #c98500;
+    --radius: 14px;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --plane: #f2f1ee;
+    --card: #ffffff;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --blue: #2a78d6;
+    --in: #006300;
+    --out: #d03b3b;
+    --net-pos: #006300;
+    --net-neg: #d03b3b;
+    --pl: #2a78d6;
+    --ch: #eb6834;
+    --l1: #1baf7a;
+    --l2: #eda100;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--plane);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 20px 80px; }
+
+  header.top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+  .title h1 { font-size: 26px; margin: 0 0 2px; letter-spacing: -0.02em; }
+  .title p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .theme-btn {
+    background: var(--card); color: var(--ink-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 7px 14px; font-size: 13px; cursor: pointer;
+  }
+  .theme-btn:hover { color: var(--ink); }
+
+  .sample-banner {
+    margin: 14px 0 18px; padding: 9px 14px; border: 1px solid var(--border);
+    border-left: 3px solid var(--l2); border-radius: 8px; background: var(--card);
+    font-size: 12.5px; color: var(--ink-2);
+  }
+  .sample-banner b { color: var(--ink); }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink-2);
+    padding: 7px 13px; border-radius: 999px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .chip[aria-pressed="true"] { color: #fff; border-color: transparent; }
+  .chip.all[aria-pressed="true"] { background: var(--ink); color: var(--surface-1); }
+  .chip.pl[aria-pressed="true"] { background: var(--pl); }
+  .chip.ch[aria-pressed="true"] { background: var(--ch); }
+  .chip.l1[aria-pressed="true"] { background: var(--l1); }
+  .chip.l2[aria-pressed="true"] { background: var(--l2); color:#0b0b0b; }
+  select, input[type="search"] {
+    background: var(--card); color: var(--ink); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 11px; font-size: 13px; font-family: inherit;
+  }
+  input[type="search"] { min-width: 200px; }
+  .spacer { flex: 1 1 auto; }
+
+  /* KPI tiles */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .kpi .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .kpi .value { font-size: 26px; font-weight: 650; margin-top: 4px; letter-spacing: -0.02em; }
+  .kpi .sub { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+  .val-in { color: var(--in); }
+  .val-out { color: var(--out); }
+  .val-pos { color: var(--net-pos); }
+  .val-neg { color: var(--net-neg); }
+
+  .club-head { display: flex; align-items: center; gap: 14px; margin: 4px 0 16px; }
+  .crest {
+    width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center;
+    font-weight: 700; font-size: 18px; color: #fff; flex: none;
+  }
+  .club-head h2 { margin: 0; font-size: 21px; letter-spacing: -0.01em; }
+  .club-head .meta { color: var(--ink-2); font-size: 13px; }
+
+  .section-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 620; margin: 24px 0 10px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dot.in { background: var(--in); }
+  .dot.out { background: var(--out); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  thead th {
+    text-align: left; color: var(--muted); font-weight: 600; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; border-bottom: 1px solid var(--baseline);
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  thead th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  thead th .arrow { color: var(--ink); font-size: 10px; }
+  tbody td { padding: 10px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+  tbody tr:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .player { font-weight: 560; }
+  .club-cell { color: var(--ink-2); }
+  .pos { display: inline-block; min-width: 30px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 560; border: 1px solid var(--border); white-space: nowrap; }
+  .badge.perm { color: var(--blue); }
+  .badge.loan { color: var(--l2); }
+  .badge.free { color: var(--in); }
+  .badge.ltb { color: var(--ch); }
+  .divtag { display: inline-block; padding: 1px 7px; border-radius: 5px; font-size: 10.5px; font-weight: 600; color: #fff; }
+  .divtag.pl { background: var(--pl); }
+  .divtag.ch { background: var(--ch); }
+  .divtag.l1 { background: var(--l1); }
+  .divtag.l2 { background: var(--l2); color: #0b0b0b; }
+
+  .fee { font-variant-numeric: tabular-nums; font-weight: 560; }
+  .fee.undisc { color: var(--muted); font-weight: 400; font-style: italic; }
+
+  .empty { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
+  .grid-two { display: grid; grid-template-columns: 1fr; gap: 6px; }
+
+  .card-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px 8px; overflow-x: auto; }
+  .foot { margin-top: 40px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--grid); padding-top: 16px; }
+  .foot code { background: var(--card); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+  a { color: var(--blue); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title">
+      <h1>EFL Transfer Tracker</h1>
+      <p>Every deal across the Premier League, Championship, League One &amp; League Two</p>
+    </div>
+    <button class="theme-btn" id="themeBtn">☀ Light</button>
+  </header>
+
+  <div class="sample-banner" id="banner">
+    <b>Sample data.</b> Waiting for the first daily scrape — once <code>data/transfers.json</code> exists this banner shows the live update time instead.
+  </div>
+
+  <div class="controls">
+    <div class="chips" id="divChips">
+      <button class="chip all" data-div="all" aria-pressed="true">All divisions</button>
+      <button class="chip pl" data-div="PL" aria-pressed="false">Premier League</button>
+      <button class="chip ch" data-div="CH" aria-pressed="false">Championship</button>
+      <button class="chip l1" data-div="L1" aria-pressed="false">League One</button>
+      <button class="chip l2" data-div="L2" aria-pressed="false">League Two</button>
+    </div>
+    <div class="spacer"></div>
+    <select id="clubSelect" aria-label="Select a club"></select>
+    <select id="windowSelect" aria-label="Transfer window">
+      <option value="all">All windows</option>
+    </select>
+    <input type="search" id="search" placeholder="Search player or club…" aria-label="Search">
+  </div>
+
+  <div id="kpis" class="kpis"></div>
+  <div id="clubHead"></div>
+  <div id="content"></div>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+/* ============================================================
+   DATA LAYER — modeled on FotMob's team "transfers" objects.
+   Each record mirrors the shape FotMob returns per player:
+     { name, position, transferType, fromClub, toClub,
+       fee, marketValue, transferDate }
+   plus a `division` tag so we can filter across all four tiers.
+   Swap SAMPLE_TRANSFERS for a live FotMob adapter (see footer)
+   with no changes to the UI below.
+   ============================================================ */
+
+const DIVISIONS = {
+  PL: { name: "Premier League", short: "PL", fotmobId: 47 },
+  CH: { name: "Championship",   short: "CH", fotmobId: 48 },
+  L1: { name: "League One",     short: "L1", fotmobId: 108 },
+  L2: { name: "League Two",     short: "L2", fotmobId: 109 },
+};
+
+// Club crest colours (initials-based crest, no external images needed)
+const CLUB_COLOR = {
+  "Liverpool":"#c8102e","Arsenal":"#ef0107","Manchester City":"#6cabdd","Chelsea":"#034694",
+  "Newcastle United":"#241f20","Sunderland":"#eb172b","Leeds United":"#1d428a","Burnley":"#6c1d45",
+  "Aston Villa":"#95bfe5","West Ham United":"#7a263a","Brighton":"#0057b8","Nottingham Forest":"#dd0000",
+  "Leicester City":"#003090","Southampton":"#d71920","Ipswich Town":"#0044a9","Birmingham City":"#0000ab",
+  "Middlesbrough":"#e1050e","Coventry City":"#78d0f5","Norwich City":"#00a650","Sheffield United":"#ee2737",
+  "Wrexham":"#e10000","Bolton Wanderers":"#263c7e","Huddersfield Town":"#0072ce","Reading":"#004494",
+  "Wycombe Wanderers":"#004b9b","Blackpool":"#f68712","Stockport County":"#002d62","Barnsley":"#e4022d",
+  "Notts County":"#000000","MK Dons":"#e30613","Bromley":"#f5c400","Gillingham":"#0033a0",
+  "Walsall":"#dc0000","Salford City":"#c8102e","Chesterfield":"#0033a0","Grimsby Town":"#000000",
+  "Free agent":"#555","—":"#555"
+};
+
+// Transfer type keys mirror FotMob's transferType labels
+const T = { PERM:"perm", LOAN:"loan", FREE:"free", LTB:"ltb" };
+const TYPE_LABEL = { perm:"Transfer", loan:"Loan", free:"Free", ltb:"Loan-to-buy" };
+
+/* fee: value in millions GBP (null = undisclosed/N-A). direction handled by in/out. */
+function tx(division, club, dir, player, pos, other, type, fee, date, window) {
+  // dir: "in" or "out". `club` is the tracked club; `other` is the counterparty.
+  return {
+    division, club, dir, player, position: pos,
+    fromClub: dir === "in" ? other : club,
+    toClub:   dir === "in" ? club  : other,
+    type, fee, transferDate: date, window
+  };
+}
+
+// window labels
+const W_S25 = "Summer 2025";
+const W_W25 = "Winter 2025/26";
+
+const SAMPLE_TRANSFERS = [
+  // ---------- PREMIER LEAGUE ----------
+  tx("PL","Liverpool","in","Milos Kerkez","LB","Bournemouth",T.PERM,40,"2025-06-30",W_S25),
+  tx("PL","Liverpool","in","Jeremie Frimpong","RB","Bayer Leverkusen",T.PERM,29.5,"2025-06-01",W_S25),
+  tx("PL","Liverpool","in","Florian Wirtz","AM","Bayer Leverkusen",T.PERM,116,"2025-06-20",W_S25),
+  tx("PL","Liverpool","out","Trent Alexander-Arnold","RB","Real Madrid",T.PERM,10,"2025-06-01",W_S25),
+  tx("PL","Liverpool","out","Jarell Quansah","CB","Bayer Leverkusen",T.PERM,35,"2025-07-05",W_S25),
+  tx("PL","Liverpool","out","Caoimhin Kelleher","GK","Brentford",T.PERM,12.5,"2025-06-27",W_S25),
+
+  tx("PL","Arsenal","in","Martin Zubimendi","DM","Real Sociedad",T.PERM,51,"2025-06-30",W_S25),
+  tx("PL","Arsenal","in","Kepa Arrizabalaga","GK","Chelsea",T.PERM,5,"2025-06-24",W_S25),
+  tx("PL","Arsenal","in","Christian Norgaard","DM","Brentford",T.PERM,10,"2025-07-09",W_S25),
+  tx("PL","Arsenal","out","Kieran Tierney","LB","Celtic",T.FREE,null,"2025-06-15",W_S25),
+  tx("PL","Arsenal","out","Jorginho","DM","Free agent",T.FREE,null,"2025-06-30",W_S25),
+
+  tx("PL","Manchester City","in","Rayan Cherki","AM","Lyon",T.PERM,34,"2025-06-12",W_S25),
+  tx("PL","Manchester City","in","Tijjani Reijnders","CM","AC Milan",T.PERM,46.3,"2025-06-11",W_S25),
+  tx("PL","Manchester City","in","Rayan Ait-Nouri","LB","Wolves",T.PERM,31,"2025-06-13",W_S25),
+  tx("PL","Manchester City","out","Kevin De Bruyne","AM","Napoli",T.FREE,null,"2025-06-01",W_S25),
+  tx("PL","Manchester City","out","Jack Grealish","LW","Everton",T.LOAN,null,"2025-08-02",W_S25),
+
+  tx("PL","Chelsea","in","Joao Pedro","FW","Brighton",T.PERM,55,"2025-07-02",W_S25),
+  tx("PL","Chelsea","in","Jamie Gittens","LW","Borussia Dortmund",T.PERM,48.5,"2025-07-10",W_S25),
+  tx("PL","Chelsea","in","Liam Delap","ST","Ipswich Town",T.PERM,30,"2025-06-25",W_S25),
+  tx("PL","Chelsea","out","Noni Madueke","RW","Arsenal",T.PERM,48,"2025-07-18",W_S25),
+  tx("PL","Chelsea","out","Djordje Petrovic","GK","Bournemouth",T.PERM,25,"2025-07-15",W_S25),
+
+  tx("PL","Newcastle United","in","Anthony Elanga","RW","Nottingham Forest",T.PERM,55,"2025-07-11",W_S25),
+  tx("PL","Newcastle United","out","Callum Wilson","ST","Free agent",T.FREE,null,"2025-06-30",W_S25),
+
+  tx("PL","Sunderland","in","Habib Diarra","CM","Strasbourg",T.PERM,31.5,"2025-07-08",W_S25),
+  tx("PL","Sunderland","in","Granit Xhaka","DM","Bayer Leverkusen",T.PERM,13,"2025-07-25",W_S25),
+  tx("PL","Sunderland","in","Enzo Le Fee","AM","AS Roma",T.PERM,19,"2025-06-28",W_S25),
+  tx("PL","Sunderland","out","Jobe Bellingham","CM","Borussia Dortmund",T.PERM,30.5,"2025-06-23",W_S25),
+
+  tx("PL","Leeds United","in","Lukas Nmecha","ST","Free agent",T.FREE,null,"2025-07-01",W_S25),
+  tx("PL","Leeds United","in","Jaka Bijol","CB","Udinese",T.PERM,15,"2025-07-14",W_S25),
+  tx("PL","Leeds United","out","Georginio Rutter","AM","Brighton",T.PERM,40,"2025-07-18",W_S25),
+
+  tx("PL","Burnley","in","Kyle Walker","RB","Manchester City",T.PERM,5,"2025-07-20",W_S25),
+  tx("PL","Burnley","in","Max Weiss","GK","Karlsruher SC",T.PERM,5,"2025-07-03",W_S25),
+
+  // ---------- CHAMPIONSHIP ----------
+  tx("CH","Leicester City","out","Bilal El Khannouss","AM","VfB Stuttgart",T.PERM,20,"2025-07-16",W_S25),
+  tx("CH","Leicester City","out","Kiernan Dewsbury-Hall","CM","Everton",T.PERM,15,"2025-06-30",W_S25),
+  tx("CH","Leicester City","in","Jordan James","CM","Rennes",T.LOAN,null,"2025-08-01",W_S25),
+
+  tx("CH","Southampton","out","Tyler Dibling","RW","Everton",T.PERM,35,"2025-08-02",W_S25),
+  tx("CH","Southampton","in","Josh Stokes","FW","Aldershot Town",T.PERM,1.2,"2025-07-05",W_S25),
+
+  tx("CH","Ipswich Town","out","Liam Delap","ST","Chelsea",T.PERM,30,"2025-06-25",W_S25),
+  tx("CH","Ipswich Town","in","Woyo Coulibaly","RB","Parma",T.PERM,6,"2025-07-01",W_S25),
+  tx("CH","Ipswich Town","in","Malcolm Ebiowei","RW","Crystal Palace",T.LOAN,null,"2025-07-22",W_S25),
+
+  tx("CH","Birmingham City","in","Phil Neumann","CB","Hannover 96",T.PERM,2.5,"2025-06-18",W_S25),
+  tx("CH","Birmingham City","in","Demarai Gray","RW","Al-Ettifaq",T.PERM,7,"2025-07-19",W_S25),
+  tx("CH","Birmingham City","out","Jay Stansfield","ST","Free agent",T.FREE,null,"2025-08-01",W_S25),
+
+  tx("CH","Wrexham","in","Josh Windass","AM","Sheffield Wednesday",T.FREE,null,"2025-07-02",W_S25),
+  tx("CH","Wrexham","in","Conor Coady","CB","Leicester City",T.PERM,3,"2025-07-24",W_S25),
+  tx("CH","Wrexham","in","Danny Ward","GK","Leicester City",T.FREE,null,"2025-07-04",W_S25),
+
+  tx("CH","Middlesbrough","in","David Strelec","ST","Slovan Bratislava",T.PERM,6,"2025-07-30",W_S25),
+  tx("CH","Middlesbrough","out","Hayden Hackney","CM","Free agent",T.LOAN,null,"2025-08-03",W_S25),
+
+  tx("CH","Coventry City","in","Haji Wright","ST","Free agent",T.PERM,8,"2025-07-12",W_S25),
+
+  // ---------- LEAGUE ONE ----------
+  tx("L1","Bolton Wanderers","in","Alex Baptiste","CB","Free agent",T.FREE,null,"2025-07-01",W_S25),
+  tx("L1","Bolton Wanderers","in","Jordan Thomas","AM","Free agent",T.FREE,null,"2025-07-08",W_S25),
+  tx("L1","Bolton Wanderers","out","Aaron Collins","FW","Free agent",T.LOAN,null,"2025-08-01",W_S25),
+
+  tx("L1","Huddersfield Town","in","Lasse Sorensen","CM","Free agent",T.FREE,null,"2025-06-25",W_S25),
+  tx("L1","Huddersfield Town","in","Dion Charles","ST","Bolton Wanderers",T.PERM,0.8,"2025-07-15",W_S25),
+
+  tx("L1","Reading","in","Mark O'Mahony","ST","Brighton",T.LOAN,null,"2025-07-20",W_S25),
+  tx("L1","Reading","out","Sam Smith","ST","Wrexham",T.PERM,2,"2025-06-30",W_S25),
+
+  tx("L1","Blackpool","in","Danny Philliskirk","CM","Free agent",T.FREE,null,"2025-07-05",W_S25),
+  tx("L1","Blackpool","in","Niall Ennis","ST","Stoke City",T.FREE,null,"2025-07-11",W_S25),
+
+  tx("L1","Stockport County","in","Kyle Wootton","ST","Notts County",T.PERM,0.5,"2025-06-28",W_S25),
+  tx("L1","Barnsley","in","Davis Keillor-Dunn","AM","Free agent",T.FREE,null,"2025-07-03",W_S25),
+  tx("L1","Wycombe Wanderers","out","Richard Kone","ST","Wolves",T.PERM,3,"2025-08-02",W_S25),
+
+  // ---------- LEAGUE TWO ----------
+  tx("L2","Notts County","in","Alassana Jatta","ST","Free agent",T.FREE,null,"2025-07-02",W_S25),
+  tx("L2","Notts County","out","Kyle Wootton","ST","Stockport County",T.PERM,0.5,"2025-06-28",W_S25),
+
+  tx("L2","MK Dons","in","Joe Tomlinson","LB","Free agent",T.FREE,null,"2025-07-07",W_S25),
+  tx("L2","MK Dons","in","Alex Gilbey","CM","Free agent",T.FREE,null,"2025-07-14",W_S25),
+
+  tx("L2","Bromley","in","Kwesi Appiah","ST","Free agent",T.FREE,null,"2025-07-09",W_S25),
+  tx("L2","Gillingham","in","Elkan Baggott","CB","Ipswich Town",T.LOAN,null,"2025-07-18",W_S25),
+  tx("L2","Walsall","in","Nathan Lowe","ST","Stoke City",T.LOAN,null,"2025-07-21",W_S25),
+  tx("L2","Salford City","in","Curtis Nelson","CB","Free agent",T.FREE,null,"2025-07-06",W_S25),
+  tx("L2","Chesterfield","in","Ryheem Sheckleford","RB","Free agent",T.FREE,null,"2025-07-13",W_S25),
+  tx("L2","Grimsby Town","in","Charles Vernam","AM","Free agent",T.FREE,null,"2025-07-10",W_S25),
+
+  // A couple of winter-window rows to exercise the window filter
+  tx("PL","Liverpool","in","Example Winter Signing","CM","Example FC",T.PERM,22,"2026-01-15",W_W25),
+  tx("CH","Leicester City","in","Example Winter Loan","ST","Example FC",T.LOAN,null,"2026-01-20",W_W25),
+];
+
+/* ============================================================
+   APP
+   ============================================================ */
+const state = { division: "all", club: "all", window: "all", search: "", sortKey: "date", sortDir: -1 };
+
+// Live data: written daily by fetch-transfers.mjs via GitHub Actions.
+// Falls back to the embedded sample set until the first scrape has run.
+let TRANSFERS = SAMPLE_TRANSFERS;
+fetch("data/transfers.json")
+  .then(r => r.ok ? r.json() : Promise.reject(r.status))
+  .then(j => {
+    if (Array.isArray(j.transfers) && j.transfers.length) {
+      TRANSFERS = j.transfers;
+      const when = new Date(j.updated).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+      document.getElementById("banner").innerHTML =
+        `<b>Live data.</b> Sourced from FotMob · last updated ${when}` +
+        (j.errors?.length ? ` · <span style="color:var(--out)">${j.errors.length} league(s) failed last scrape</span>` : "");
+      initWindows(); render();
+    }
+  })
+  .catch(() => {/* keep sample data */});
+
+const money = (m) => {
+  if (m == null) return null;
+  if (m === 0) return "£0";
+  if (m >= 1) return "£" + (Number.isInteger(m) ? m : m.toFixed(1)) + "m";
+  return "£" + Math.round(m * 1000) + "k";
+};
+const feeCell = (t) => t.type === T.FREE
+  ? '<span class="fee undisc">Free</span>'
+  : (t.fee == null ? '<span class="fee undisc">Undisc.</span>' : '<span class="fee">'+money(t.fee)+'</span>');
+
+const divClass = (d) => ({PL:"pl",CH:"ch",L1:"l1",L2:"l2"}[d]);
+const typeBadge = (type) => `<span class="badge ${type}">${TYPE_LABEL[type]}</span>`;
+
+function hashColor(name){
+  // deterministic colour for clubs not in CLUB_COLOR (live data has ~92 clubs)
+  let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `hsl(${h % 360} 45% 38%)`;
+}
+function crest(name){
+  const c = CLUB_COLOR[name] || hashColor(name);
+  const initials = name.split(" ").filter(w=>w[0] && /[A-Za-z]/.test(w[0])).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "?";
+  return `<span class="crest" style="background:${c}">${initials}</span>`;
+}
+
+// clubs present in data, optionally filtered by division
+function clubsForDivision(div){
+  const set = new Set();
+  TRANSFERS.forEach(t => { if (div==="all" || t.division===div) set.add(t.club); });
+  return [...set].sort();
+}
+
+function currentRows(){
+  return TRANSFERS.filter(t => {
+    if (state.division !== "all" && t.division !== state.division) return false;
+    if (state.window !== "all" && t.window !== state.window) return false;
+    if (state.club !== "all" && t.club !== state.club) return false;
+    if (state.search){
+      const q = state.search.toLowerCase();
+      if (!(t.player.toLowerCase().includes(q) || t.fromClub.toLowerCase().includes(q) || t.toClub.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
+}
+
+function sumFees(rows, dir){
+  return rows.filter(r=>r.dir===dir && r.type!==T.FREE && r.fee!=null).reduce((a,b)=>a+b.fee,0);
+}
+
+/* ---------- rendering ---------- */
+const $ = (id) => document.getElementById(id);
+
+function renderKPIs(rows){
+  const spent = sumFees(rows,"in");
+  const received = sumFees(rows,"out");
+  const net = received - spent; // positive = profit
+  const ins = rows.filter(r=>r.dir==="in").length;
+  const outs = rows.filter(r=>r.dir==="out").length;
+  const biggest = rows.filter(r=>r.fee!=null && r.type!==T.FREE).sort((a,b)=>b.fee-a.fee)[0];
+
+  const isClub = state.club !== "all";
+  const netLabel = net >= 0 ? "Net profit" : "Net spend";
+  const netVal = net >= 0 ? "+" + money(net) : "−" + money(Math.abs(net));
+  const netClass = net >= 0 ? "val-pos" : "val-neg";
+
+  const tiles = isClub ? [
+    {label:"Signings", value: ins},
+    {label:"Departures", value: outs},
+    {label:"Spent", value: money(spent) || "£0m", cls:"val-out"},
+    {label:"Received", value: money(received) || "£0m", cls:"val-in"},
+    {label:netLabel, value: netVal, cls:netClass},
+  ] : [
+    {label:"Transfers", value: rows.length},
+    {label:"Clubs active", value: new Set(rows.map(r=>r.club)).size},
+    {label:"Total spend", value: money(spent+received) || "£0m", sub:"fees disclosed"},
+    {label:"Biggest deal", value: biggest ? money(biggest.fee) : "—", sub: biggest ? biggest.player : ""},
+  ];
+
+  $("kpis").innerHTML = tiles.map(t=>`
+    <div class="kpi">
+      <div class="label">${t.label}</div>
+      <div class="value ${t.cls||''}">${t.value}</div>
+      ${t.sub?`<div class="sub">${t.sub}</div>`:""}
+    </div>`).join("");
+}
+
+function renderClubHead(){
+  if (state.club === "all"){ $("clubHead").innerHTML = ""; return; }
+  const div = TRANSFERS.find(t=>t.club===state.club)?.division;
+  $("clubHead").innerHTML = `
+    <div class="club-head">
+      ${crest(state.club)}
+      <div>
+        <h2>${state.club}</h2>
+        <div class="meta"><span class="divtag ${divClass(div)}">${DIVISIONS[div].name}</span></div>
+      </div>
+    </div>`;
+}
+
+function movementCell(t){
+  // In club view: show counterparty. In league view: show from → to.
+  if (state.club !== "all"){
+    const other = t.dir === "in" ? t.fromClub : t.toClub;
+    const arrow = t.dir === "in" ? "←" : "→";
+    return `<span class="club-cell">${arrow} ${other}</span>`;
+  }
+  return `<span class="club-cell">${t.fromClub} <span style="color:var(--muted)">→</span> ${t.toClub}</span>`;
+}
+
+function row(t){
+  return `<tr>
+    <td class="player">${t.player} <span class="pos">${t.position}</span></td>
+    ${state.club==="all" ? `<td><span class="divtag ${divClass(t.division)}">${DIVISIONS[t.division].short}</span></td>`:""}
+    <td>${movementCell(t)}</td>
+    <td>${typeBadge(t.type)}</td>
+    <td class="num">${feeCell(t)}</td>
+    <td class="num club-cell">${t.transferDate}</td>
+  </tr>`;
+}
+
+function sortRows(rows){
+  const k = state.sortKey, d = state.sortDir;
+  return [...rows].sort((a,b)=>{
+    let av,bv;
+    if (k==="fee"){ av=a.fee??-1; bv=b.fee??-1; }
+    else if (k==="player"){ av=a.player.toLowerCase(); bv=b.player.toLowerCase(); }
+    else { av=a.transferDate; bv=b.transferDate; }
+    if (av<bv) return -1*d; if (av>bv) return 1*d; return 0;
+  });
+}
+
+function tableHead(){
+  const arrow = (k)=> state.sortKey===k ? `<span class="arrow">${state.sortDir<0?"▼":"▲"}</span>` : "";
+  return `<thead><tr>
+    <th data-sort="player">Player ${arrow("player")}</th>
+    ${state.club==="all"?`<th>Div</th>`:""}
+    <th>${state.club==="all"?"Move":"Club"}</th>
+    <th>Type</th>
+    <th class="num" data-sort="fee">Fee ${arrow("fee")}</th>
+    <th class="num" data-sort="date">Date ${arrow("date")}</th>
+  </tr></thead>`;
+}
+
+function renderContent(rows){
+  if (!rows.length){ $("content").innerHTML = `<div class="card-wrap"><div class="empty">No transfers match these filters.</div></div>`; return; }
+
+  if (state.club !== "all"){
+    const ins = sortRows(rows.filter(r=>r.dir==="in"));
+    const outs = sortRows(rows.filter(r=>r.dir==="out"));
+    const block = (title, cls, list) => `
+      <div class="section-title"><span class="dot ${cls}"></span>${title} <span style="color:var(--muted);font-weight:400">(${list.length})</span></div>
+      <div class="card-wrap">
+        ${list.length ? `<table>${tableHead()}<tbody>${list.map(row).join("")}</tbody></table>` : `<div class="empty">None in this window.</div>`}
+      </div>`;
+    $("content").innerHTML = block("Players in","in",ins) + block("Players out","out",outs);
+  } else {
+    const sorted = sortRows(rows);
+    $("content").innerHTML = `
+      <div class="section-title">All transfers <span style="color:var(--muted);font-weight:400">(${sorted.length})</span></div>
+      <div class="card-wrap"><table>${tableHead()}<tbody>${sorted.map(row).join("")}</tbody></table></div>`;
+  }
+  // wire sort clicks
+  document.querySelectorAll("th[data-sort]").forEach(th=>{
+    th.addEventListener("click", ()=>{
+      const k = th.getAttribute("data-sort");
+      if (state.sortKey===k) state.sortDir*=-1; else { state.sortKey=k; state.sortDir = k==="player"?1:-1; }
+      render();
+    });
+  });
+}
+
+function renderClubSelect(){
+  const clubs = clubsForDivision(state.division);
+  if (state.club!=="all" && !clubs.includes(state.club)) state.club = "all";
+  const sel = $("clubSelect");
+  sel.innerHTML = `<option value="all">All clubs (league view)</option>` +
+    clubs.map(c=>`<option value="${c}" ${c===state.club?"selected":""}>${c}</option>`).join("");
+}
+
+function render(){
+  renderClubSelect();
+  const rows = currentRows();
+  renderKPIs(rows);
+  renderClubHead();
+  renderContent(rows);
+}
+
+/* ---------- controls ---------- */
+$("divChips").addEventListener("click", (e)=>{
+  const btn = e.target.closest(".chip"); if(!btn) return;
+  state.division = btn.getAttribute("data-div");
+  document.querySelectorAll("#divChips .chip").forEach(c=>c.setAttribute("aria-pressed", c===btn));
+  render();
+});
+$("clubSelect").addEventListener("change", e=>{ state.club = e.target.value; render(); });
+$("windowSelect").addEventListener("change", e=>{ state.window = e.target.value; render(); });
+$("search").addEventListener("input", e=>{ state.search = e.target.value.trim(); render(); });
+
+// window options from data (idempotent — re-run when live data arrives)
+function initWindows(){
+  const wins = [...new Set(TRANSFERS.map(t=>t.window))].sort().reverse();
+  const sel = $("windowSelect");
+  sel.innerHTML = `<option value="all">All windows</option>` +
+    wins.map(w=>`<option value="${w}">${w}</option>`).join("");
+  if (![...sel.options].some(o=>o.value===state.window)) state.window = "all";
+}
+initWindows();
+
+// theme toggle
+const themeBtn = $("themeBtn");
+function setTheme(t){ document.documentElement.setAttribute("data-theme", t); themeBtn.textContent = t==="dark" ? "☀ Light" : "☾ Dark"; }
+themeBtn.addEventListener("click", ()=> setTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark"));
+setTheme("dark");
+
+// footer
+$("foot").innerHTML = `
+  <p><b>How this stays fresh.</b> A GitHub Actions job runs <code>fetch-transfers.mjs</code> every morning at 06:00 UTC, pulling the transfers tab for each division from FotMob (league IDs: Premier League <code>47</code>, Championship <code>48</code>, League One <code>108</code>, League Two <code>109</code>) and committing the result to <code>data/transfers.json</code>. Undisclosed fees show as "Undisc."; FotMob fees are converted from EUR at a fixed rate set in the scraper.</p>
+  <p>Unofficial data source — FotMob's terms restrict automated use, so this is best kept as a personal project. See the README for setup and caveats.</p>`;
+
+render();
+</script>
+</body>
+</html>
